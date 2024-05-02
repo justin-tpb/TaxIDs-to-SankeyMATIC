@@ -6,21 +6,21 @@ A ready-to-use code of the taxonomic distribution is then generated for visualiz
 ## Features
 * Fetch taxonomic information from Entrez for specified TaxIDs.
 * Output the fetched data with user-selectable taxonomic ranks.
-* Generate code compatible with SankeyMATIC for visualizing taxonomic distribution, sorted by hierarchy and count.
+* Generate code compatible with SankeyMATIC for visualizing the taxonomic distribution of the TaxIDs, sorted by hierarchy and count.
 * Optional grouping of taxa with low counts to reduce clutter in the Sankey diagram.
 
 
 ## Prerequisites
 Before running this script, it is necessary to have the following installed:
 * Python 3.6 or later
-* `pandas` and `biopython` libraries. To install these libraries, use:
-```bash
+* `pandas` and `biopython` libraries. To install these libraries, execute the following command:
+```
 pip install pandas biopython
 ```
 
 
 ## Usage
-```bash
+```
 python taxids2sankey.py <input_file> [options]
 ```
 
@@ -32,34 +32,38 @@ python taxids2sankey.py <input_file> [options]
 
 
 ### Options
-* `-c`, `--header <name>`: Header of the column containing the TaxIDs. Default is `#Taxid` from the BLAST text output.
-* `-t`, `--tax_ranks <taxonomic_ranks>`: Space-separated list of taxonomic ranks. Default is `class order genus`.
-* `-e`, `--email <address>`: Email for identification by Entrez. Will be saved to `entrez_config.ini` for future use.
-Entrez will show a warning without an email and might block access in case of excessive usage.
-* `-g`, `--group <threshold>`: Group together ranks which are below this threshold for less cluttered SankeyMATIC diagrams,
-which will then be named `<parent_rank> (grouped)`. Default is no grouping.
+* `-c`, `--header <name>`: Header of the column containing the TaxIDs.
+  * Default is `#Taxid` from the BLAST text output.
+* `-t`, `--tax_ranks <taxonomic_ranks>`: Space-separated list of taxonomic ranks.
+  * Default is `class order genus`.
+* `-e`, `--email <address>`: Email for identification by Entrez.
+  * Will be saved to `entrez_config.ini` for future use.
+  * Entrez will show a warning without an email and might block access in case of excessive usage.
+* `-g`, `--group <threshold>`: Group ranks below this threshold for less cluttered Sankey diagrams.
+  * Groups will be named `<parent_rank> (grouped)`.
+  * Default is no grouping.
 * `-s`, `--skip`: Skip the generation of SankeyMATIC compatible code (only output taxonomic information).
 * `-h`, `--help`: Show this help message.
 
 
 ### Examples
 Running the script with the default parameters:
-```bash
+```
 python taxids2sankey.py example.csv -e email@example.com
 ```
 
 Running the script after an email was saved to `entrez_config.ini`:
-```bash
+```
 python taxids2sankey.py example.csv
 ```
 
 Specifying a custom column header for the TaxIDs and skipping SankeyMATIC code generation:
-```bash
+```
 python taxids2sankey.py example.csv -c TaxIDs -s
 ```
 
 Specifying custom taxonomic ranks and enabling grouping for SankeyMATIC:
-```bash
+```
 python taxids2sankey.py example.csv -t "phylum class order" -g 10
 ```
 

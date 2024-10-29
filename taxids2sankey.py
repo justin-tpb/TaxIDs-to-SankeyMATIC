@@ -1,22 +1,24 @@
+#!/usr/bin/env python3
+
 import argparse
+import collections
 import configparser
 import csv
+import textwrap
 import os
-import re
 import sys
 import pandas as pd
 from Bio import Entrez
-from collections import defaultdict
 
 def parse_args():
     """ Set up command-line argument parsing """
     # Description for help message
-    description = """
-This script fetches taxonomic information from the Entrez database using a list of TaxIDs and outputs selected taxonomic ranks to a file.
-A ready-to-use code of the taxonomic distribution is then generated for visualization with SankeyMATIC (https://sankeymatic.com/).
-Taxa with low counts can be grouped together for less clutter. The Sankey diagram is sorted by taxonomic hierarchy and count.
-Two non-default python modules are required, pandas and biopython. Install with: pip install pandas biopython
-"""
+    description = textwrap.dedent("""
+    This script fetches taxonomic information from the Entrez database using a list of TaxIDs and outputs selected taxonomic ranks to a file.
+    A ready-to-use code of the taxonomic distribution is then generated for visualization with SankeyMATIC (https://sankeymatic.com/).
+    Taxa with low counts can be grouped together for less clutter. The Sankey diagram is sorted by taxonomic hierarchy and count.
+    Two non-default python modules are required, pandas and biopython. Install with: pip install pandas biopython
+    """)
     # Set up parser
     parser = argparse.ArgumentParser(description=description, epilog="Made by Justin Teixeira Pereira Bassiaridis.", add_help=False, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("input_file", metavar="<input_file>", type=str, help="File containing a column of TaxIDs, one per line. First line must contain column headers.")
@@ -64,11 +66,20 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     """ Append the taxonomic information from Entrez to the TaxIDs from the input file and output the result in a new file """
     # Load DataFrame from input file
     tax_df = pd.read_csv(input_file, sep=delimiter)
+    
+    # Strip whitespace from header names and ensure consistent formatting
+    tax_df.columns = tax_df.columns.str.strip()
+    header = header.strip()
+    
+    # Filter rows that contain valid TaxIDs and strip any extra whitespace
+    tax_df[header] = tax_df[header].astype(str).str.strip()
+    tax_df = tax_df[tax_df[header].notna() & tax_df[header].apply(lambda x: x.isdigit())]
     taxids = tax_df[header].astype(str).tolist()
+    
     tax_records = fetch_taxonomies(taxids)
 
     # Set header prefix
-    header_prefix="#" if header.startswith("#") else ""
+    header_prefix = "#" if header.startswith("#") else ""
         
     # Process records to extract taxonomic hierarchy and append to the DataFrame
     for record in tax_records:
@@ -100,7 +111,7 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
                             tax_data[rank] = f"{prev_taxon_name}_unclassified_{rank}"
         
         # Update the DataFrame with taxonomy information
-        idx = tax_df[tax_df[header] == int(taxid)].index  # Index of rows with matching TaxIDs
+        idx = tax_df[tax_df[header] == str(taxid)].index  # Index of rows with matching TaxIDs
         for rank in tax_ranks:
             tax_df.loc[idx, f"{header_prefix}{rank.capitalize()}"] = tax_data[rank]
 
@@ -158,7 +169,6 @@ def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold)
         next_rank = f"{header_prefix}{tax_ranks[i+1].capitalize()}"
         group_data = tax_df.groupby([current_rank, next_rank]).size()
         grouped_entries = {}
-        single_entries = {}
 
         # Determine entries to be grouped
         for (higher, lower), count in group_data.items():
@@ -198,7 +208,7 @@ def sort_and_output_sankeymatic_code(input_file, group_threshold, sankeymatic_co
 
     def build_hierarchy(data):
         """ Build a hierarchical tree from the data """
-        tree = defaultdict(list)  # Tree to hold the hierarchy
+        tree = collections.defaultdict(list)  # Tree to hold the hierarchy
         node_lookup = {}  # Lookup for node to find its parent and count
 
         # Populate the tree with data

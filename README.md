@@ -23,7 +23,10 @@ pip install pandas biopython
 ```
 python taxids2sankey.py <input_file> [options]
 ```
-
+or
+```
+./taxids2sankey.py <input_file> [options]
+```
 
 ### Arguments
 * `<input_file>`: File containing a column of TaxIDs, one per line.
@@ -34,8 +37,8 @@ python taxids2sankey.py <input_file> [options]
 ### Options
 * `-c`, `--header <name>`: Header of the column containing the TaxIDs.
   * Default is `#Taxid` from the BLAST text output.
-* `-t`, `--tax_ranks <taxonomic_ranks>`: Space-separated list of taxonomic ranks.
-  * Default is `class order genus`.
+* `-t`, `--tax_ranks <taxonomic_ranks>`: Comma-separated list of taxonomic ranks.
+  * Default is `class,order,genus`.
 * `-e`, `--email <address>`: Email for identification by Entrez.
   * Will be saved to `entrez_config.ini` for future use.
   * Entrez will show a warning without an email and might block access in case of excessive usage.
@@ -64,7 +67,7 @@ python taxids2sankey.py example.csv -c TaxIDs -s
 
 Specifying custom taxonomic ranks and enabling grouping for SankeyMATIC:
 ```
-python taxids2sankey.py example.csv -t "phylum class order" -g 10
+python taxids2sankey.py example.csv -t phylum,class,order -g 10
 ```
 
 

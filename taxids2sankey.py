@@ -23,7 +23,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description=description, epilog="Made by Justin Teixeira Pereira Bassiaridis.", add_help=False, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("input_file", metavar="<input_file>", type=str, help="File containing a column of TaxIDs, one per line. First line must contain column headers.")
     parser.add_argument("-c", "--header", metavar="<name>", type=str, help="Header of the column containing the TaxIDs (default: '#Taxid' from BLAST text output).", default="#Taxid")
-    parser.add_argument("-t", "--tax_ranks", metavar="<taxonomic_ranks>", type=str, help="Space-separated list of taxonomic ranks (default: 'class order genus').", default="class order genus")
+    parser.add_argument("-t", "--tax_ranks", metavar="<taxonomic_ranks>", type=str, help="Comma-separated list of taxonomic ranks (default: class,order,genus).\n"
+                        "Available ranks: superkingdom,clade,kingdom,phylum,class,order,suborder,family,subfamily,genus,subgenus,species", default="class,order,genus")
     parser.add_argument("-e", "--email", metavar="<address>", type=str, help="Email for identification by Entrez. Will be saved to 'entrez_config.ini' for future use.")
     parser.add_argument("-g", "--group", metavar="<threshold>", type=int, help="Group together ranks which are below this threshold for SankeyMATIC (default: no grouping).", default=0)
     parser.add_argument("-s", "--skip", help="Skip the generation of SankeyMATIC compatible code (only output taxonomic information).", action="store_true")
@@ -82,6 +83,7 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     header_prefix = "#" if header.startswith("#") else ""
         
     # Process records to extract taxonomic hierarchy and append to the DataFrame
+    tax_ranks = tax_ranks.split(",")
     for record in tax_records:
         taxid = record["TaxId"]
         tax_data = {rank: None for rank in tax_ranks}  # Default to None for all ranks
@@ -125,7 +127,7 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
             tax_df[column] = tax_df[column].astype(str).replace("_unclassified", " unclassified", regex=True)
 
     # Save the enhanced DataFrame
-    output_filename = f"{os.path.splitext(args.input_file)[0]}.taxonomy.csv"
+    output_filename = f"{os.path.splitext(input_file)[0]}.taxonomy.csv"
     tax_df.to_csv(output_filename, sep=delimiter, index=False)
     print(f"\nTaxonomic information has been saved to '{output_filename}'.\n")
     return tax_df, header_prefix
@@ -136,6 +138,7 @@ def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold)
     node_presence = set()  # To avoid orphaned entries
 
     # Setup for linking "All" to highest rank taxa
+    tax_ranks = tax_ranks.split(",")
     highest_rank = f"{header_prefix}{tax_ranks[0].capitalize()}"
     total_counts = tax_df[highest_rank].value_counts()
     normal_entries = {}
@@ -263,19 +266,23 @@ def sort_and_output_sankeymatic_code(input_file, group_threshold, sankeymatic_co
             file.write(line + "\n")
     print(f"SankeyMATIC code has been saved to '{sankey_filename}'.\n")
 
-# Parse command-line arguments
-args = parse_args()
+def main():
+    # Parse command-line arguments
+    args = parse_args()
 
-# Write or read configuration file
-setup_config(args.email)
+    # Write or read configuration file
+    setup_config(args.email)
 
-# Automatically detect input file delimiter
-delimiter = detect_delimiter(args.input_file)
+    # Automatically detect input file delimiter
+    delimiter = detect_delimiter(args.input_file)
 
-# Fetch and append taxonomic information from Entrez database to TaxIDs
-tax_df, header_prefix = append_taxonomies(args.input_file, args.header, args.tax_ranks.split(), delimiter)
+    # Fetch and append taxonomic information from Entrez database to TaxIDs
+    tax_df, header_prefix = append_taxonomies(args.input_file, args.header, args.tax_ranks, delimiter)
 
-# Run SankeyMATIC code generation if not skipped
-if not args.skip:
-    sankeymatic_code = generate_sankeymatic_code(tax_df, header_prefix, args.tax_ranks.split(), args.group)
-    sort_and_output_sankeymatic_code(args.input_file, args.group, sankeymatic_code)
+    # Run SankeyMATIC code generation if not skipped
+    if not args.skip:
+        sankeymatic_code = generate_sankeymatic_code(tax_df, header_prefix, args.tax_ranks, args.group)
+        sort_and_output_sankeymatic_code(args.input_file, args.group, sankeymatic_code)
+
+if __name__ == "__main__":
+    main()

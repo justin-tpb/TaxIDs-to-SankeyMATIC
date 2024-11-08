@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument("-h", "--help", action="help", help="Show this help message.")
     args = parser.parse_args()
 
-    # Automatically apply --skip if "clade" is in taxonomic rranks
+    # Automatically apply --skip if "clade" is in taxonomic ranks
     if 'clade' in args.tax_ranks.split(','):
         args.skip = True
         print("\nSkipping SankeyMATIC code generation because the 'clade' rank was selected.")
@@ -60,7 +60,7 @@ def detect_delimiter(input_file):
     """ Automatically detect the input table delimiter """
     with open(input_file, 'r', newline='') as file:
         try:
-            dialect = csv.Sniffer().sniff(file.read(2048))  # Read a small portion of the file
+            dialect = csv.Sniffer().sniff(file.read(8192))  # Read a small portion of the file
             return dialect.delimiter
         except csv.Error:
             print("Input table delimiter could not be detected. Exiting...")
@@ -72,6 +72,7 @@ def fetch_taxonomies(taxids):
     handle = Entrez.efetch(db="taxonomy", id=taxids, retmax=10000)  # Limited to 10000 TaxIDs
     records = Entrez.read(handle)
     return records
+
 
 def append_taxonomies(input_file, header, tax_ranks, delimiter):
     """ Append the taxonomic information from Entrez to the TaxIDs from the input file and output the result in a new file """
@@ -86,11 +87,25 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
 
     tax_records = fetch_taxonomies(taxids)
 
+    # Build taxid_to_record mapping
+    taxid_to_record = {}
+    for record in tax_records:
+        record_taxid = record["TaxId"]
+        aka_taxids = record.get("AkaTaxIds", [])
+        if not isinstance(aka_taxids, list):
+            aka_taxids = [aka_taxids]
+        all_taxids = [record_taxid] + aka_taxids
+        for taxid in all_taxids:
+            taxid_to_record[taxid] = record
+
     # Process records to extract taxonomic hierarchy and append to the DataFrame
     tax_ranks = tax_ranks.split(",")
     max_clade_count = 0
-    for record in tax_records:
-        taxid = record["TaxId"]
+    for taxid in taxids:
+        record = taxid_to_record.get(taxid)
+        if not record:
+            print(f"TaxID {taxid} does not exist.")
+            continue
         tax_data = {rank: [] for rank in tax_ranks}  # Default to empty list for all ranks
 
         # Extract scientific names from "LineageEx"
@@ -109,20 +124,20 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
                 if i == 0:  # Default for most basal rank
                     tax_data[rank].append(f"Unknown_{rank}")
                 else:  # Default for other ranks
-                    prev_rank = tax_ranks[i-1]
+                    prev_rank = tax_ranks[i - 1]
                     if tax_data[prev_rank]:
                         prev_taxon_name = tax_data[prev_rank][0].split("_")[0]
                         if prev_taxon_name == "Unknown":
                             tax_data[rank].append(f"{prev_taxon_name}_{rank}")
                         else:
                             tax_data[rank].append(f"{prev_taxon_name}_unclassified_{rank}")
-        
+
         # Update the DataFrame with taxonomy information
         idx = tax_df[tax_df[header] == str(taxid)].index  # Index of rows with matching TaxIDs
         for rank in tax_ranks:
             if rank == "clade":
                 for i, value in enumerate(tax_data[rank]):
-                    column_name = f"{header_prefix}{rank.capitalize()}_{i+1}"
+                    column_name = f"{header_prefix}{rank.capitalize()}_{i + 1}"
                     tax_df.loc[idx, column_name] = value
                 max_clade_count = max(max_clade_count, len(tax_data[rank]))
             else:

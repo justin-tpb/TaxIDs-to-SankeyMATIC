@@ -12,24 +12,34 @@ from Bio import Entrez
 
 def parse_args():
     """ Set up command-line argument parsing """
-    # Description for help message
     description = textwrap.dedent("""
     This script fetches taxonomic information from the Entrez database using a list of TaxIDs and outputs selected taxonomic ranks to a file.
     A ready-to-use code of the taxonomic distribution is then generated for visualization with SankeyMATIC (https://sankeymatic.com/).
     Taxa with low counts can be grouped together for less clutter. The Sankey diagram is sorted by taxonomic hierarchy and count.
     Two non-default python modules are required, pandas and biopython. Install with: pip install pandas biopython
     """)
-    # Set up parser
     parser = argparse.ArgumentParser(description=description, epilog="Made by Justin Teixeira Pereira Bassiaridis.", add_help=False, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("input_file", metavar="<input_file>", type=str, help="File containing a column of TaxIDs, one per line. First line must contain column headers.")
     parser.add_argument("-c", "--header", metavar="<name>", type=str, help="Header of the column containing the TaxIDs (default: '#Taxid' from BLAST text output).", default="#Taxid")
-    parser.add_argument("-t", "--tax_ranks", metavar="<taxonomic_ranks>", type=str, help="Comma-separated list of taxonomic ranks (default: class,order,genus).\n"
-                        "Available ranks: superkingdom,clade,kingdom,phylum,class,order,suborder,family,subfamily,genus,subgenus,species", default="class,order,genus")
+    parser.add_argument("-t", "--tax_ranks", metavar="<taxonomic_ranks>", type=str, help="Comma-separated list of taxonomic ranks in hierarchical order (default: class,order,genus).\n"
+                        "Commonly used ranks: superkingdom,kingdom,phylum,class,order,family,genus,species\n"
+                        "All available ranks: clade,domain,superkingdom,kingdom,subkingdom,infrakingdom,superphylum,phylum,subphylum,infraphylum,superclass,class,subclass,infraclass,\n"
+                        "                     superorder,order,suborder,infraorder,parvorder,superfamily,family,subfamily,tribe,subtribe,genus,subgenus,species,subspecies,variety,form\n"
+                        "Note: The rank 'clade' can only be used to fetch taxonomic information, but not to generate SankeyMATIC code.\n"
+                        "      This is because 'clade' does not follow any hierarchical structure and can also have multiple entries.\n"
+                        "      When 'clade' is selected, '-s' is applied automatically.", default="class,order,genus")
     parser.add_argument("-e", "--email", metavar="<address>", type=str, help="Email for identification by Entrez. Will be saved to 'entrez_config.ini' for future use.")
     parser.add_argument("-g", "--group", metavar="<threshold>", type=int, help="Group together ranks which are below this threshold for SankeyMATIC (default: no grouping).", default=0)
     parser.add_argument("-s", "--skip", help="Skip the generation of SankeyMATIC compatible code (only output taxonomic information).", action="store_true")
     parser.add_argument("-h", "--help", action="help", help="Show this help message.")
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    # Automatically apply --skip if "clade" is in taxonomic rranks
+    if 'clade' in args.tax_ranks.split(','):
+        args.skip = True
+        print("\nSkipping SankeyMATIC code generation because the 'clade' rank was selected.")
+
+    return args
 
 def setup_config(email):
     """ Write or read the configuration file """
@@ -65,62 +75,86 @@ def fetch_taxonomies(taxids):
 
 def append_taxonomies(input_file, header, tax_ranks, delimiter):
     """ Append the taxonomic information from Entrez to the TaxIDs from the input file and output the result in a new file """
-    # Load DataFrame from input file
+    # Load DataFrame from input file and filter entries
     tax_df = pd.read_csv(input_file, sep=delimiter)
-    
-    # Strip whitespace from header names and ensure consistent formatting
     tax_df.columns = tax_df.columns.str.strip()
     header = header.strip()
-    
-    # Filter rows that contain valid TaxIDs and strip any extra whitespace
+    header_prefix = "#" if header.startswith("#") else ""
     tax_df[header] = tax_df[header].astype(str).str.strip()
     tax_df = tax_df[tax_df[header].notna() & tax_df[header].apply(lambda x: x.isdigit())]
     taxids = tax_df[header].astype(str).tolist()
-    
+
     tax_records = fetch_taxonomies(taxids)
 
-    # Set header prefix
-    header_prefix = "#" if header.startswith("#") else ""
-        
     # Process records to extract taxonomic hierarchy and append to the DataFrame
     tax_ranks = tax_ranks.split(",")
+    max_clade_count = 0
     for record in tax_records:
         taxid = record["TaxId"]
-        tax_data = {rank: None for rank in tax_ranks}  # Default to None for all ranks
+        tax_data = {rank: [] for rank in tax_ranks}  # Default to empty list for all ranks
 
-        # Extract scientific names from 'LineageEx' or directly from record
+        # Extract scientific names from "LineageEx"
         for taxon in record["LineageEx"]:
             if taxon["Rank"] in tax_ranks:
-                tax_data[taxon["Rank"]] = taxon["ScientificName"]
+                tax_data[taxon["Rank"]].append(taxon["ScientificName"])
 
-        # Special handling for species rank when not in 'LineageEx'
-        if "species" in tax_ranks and tax_data["species"] is None:
+        # Special handling for species rank when not in "LineageEx"
+        if "species" in tax_ranks and not tax_data["species"]:
             if record.get("Rank") == "species":
-                tax_data["species"] = record.get("ScientificName", "Unknown_species")
+                tax_data["species"].append(record.get("ScientificName", "Unknown_species"))
 
         # Set placeholders if rank is unknown
         for i, rank in enumerate(tax_ranks):
-            if tax_data[rank] is None:
+            if not tax_data[rank]:
                 if i == 0:  # Default for most basal rank
-                    tax_data[rank] = f"Unknown_{rank}"
+                    tax_data[rank].append(f"Unknown_{rank}")
                 else:  # Default for other ranks
                     prev_rank = tax_ranks[i-1]
                     if tax_data[prev_rank]:
-                        prev_taxon_name = tax_data[prev_rank].split("_")[0]
+                        prev_taxon_name = tax_data[prev_rank][0].split("_")[0]
                         if prev_taxon_name == "Unknown":
-                            tax_data[rank] = f"{prev_taxon_name}_{rank}"
+                            tax_data[rank].append(f"{prev_taxon_name}_{rank}")
                         else:
-                            tax_data[rank] = f"{prev_taxon_name}_unclassified_{rank}"
+                            tax_data[rank].append(f"{prev_taxon_name}_unclassified_{rank}")
         
         # Update the DataFrame with taxonomy information
         idx = tax_df[tax_df[header] == str(taxid)].index  # Index of rows with matching TaxIDs
         for rank in tax_ranks:
-            tax_df.loc[idx, f"{header_prefix}{rank.capitalize()}"] = tax_data[rank]
+            if rank == "clade":
+                for i, value in enumerate(tax_data[rank]):
+                    column_name = f"{header_prefix}{rank.capitalize()}_{i+1}"
+                    tax_df.loc[idx, column_name] = value
+                max_clade_count = max(max_clade_count, len(tax_data[rank]))
+            else:
+                if tax_data[rank]:
+                    column_name = f"{header_prefix}{rank.capitalize()}"
+                    tax_df.loc[idx, column_name] = tax_data[rank][0]
+
+    # Ensure that all clade columns up to the maximum count are present in the DataFrame in the correct order
+    for i in range(1, max_clade_count + 1):
+        clade_column = f"{header_prefix}Clade_{i}"
+        if clade_column not in tax_df.columns:
+            tax_df[clade_column] = pd.NA
+
+    # Reorder columns to match the taxonomic rank order specified by -t
+    ordered_columns = []
+    for rank in tax_ranks:
+        if rank == "clade":
+            for i in range(1, max_clade_count + 1):
+                ordered_columns.append(f"{header_prefix}Clade_{i}")
+        else:
+            ordered_columns.append(f"{header_prefix}{rank.capitalize()}")
+
+    # Include original columns that are not taxonomic ranks
+    non_tax_columns = [col for col in tax_df.columns if col not in ordered_columns]
+    tax_df = tax_df[non_tax_columns + ordered_columns]
+
+    # Replace NaN values with empty strings
+    tax_df.fillna("-", inplace=True)
 
     # Remove placeholder underscores from the taxonomic columns before saving
-    tax_columns = [f"{header_prefix}{rank.capitalize()}" for rank in tax_ranks]
-    for column in tax_columns:
-        if column in tax_df.columns:
+    for column in tax_df.columns:
+        if header_prefix in column:
             pattern = f"_{column.strip('#').lower()}"
             replacement = f" {column.strip('#').lower()}"
             tax_df[column] = tax_df[column].astype(str).replace(pattern, replacement, regex=True)

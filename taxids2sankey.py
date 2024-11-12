@@ -35,7 +35,7 @@ def parse_args():
     args = parser.parse_args()
 
     # Automatically apply --skip if "clade" is in taxonomic ranks
-    if 'clade' in args.tax_ranks.split(','):
+    if "clade" in args.tax_ranks.split(","):
         args.skip = True
         print("\nSkipping SankeyMATIC code generation because the 'clade' rank was selected.")
 
@@ -58,12 +58,12 @@ def setup_config(email):
 
 def detect_delimiter(input_file):
     """ Automatically detect the input table delimiter """
-    with open(input_file, 'r', newline='') as file:
+    with open(input_file, "r", newline="") as file:
         try:
             dialect = csv.Sniffer().sniff(file.read(8192))  # Read a small portion of the file
             return dialect.delimiter
         except csv.Error:
-            print("Input table delimiter could not be detected. Exiting...")
+            print("Input table delimiter could not be detected. Exiting...\n")
             sys.exit(1)
 
 def fetch_taxonomies(taxids):
@@ -71,8 +71,8 @@ def fetch_taxonomies(taxids):
     print("Fetching taxonomic information from the Entrez database...")
     handle = Entrez.efetch(db="taxonomy", id=taxids, retmax=10000)  # Limited to 10000 TaxIDs
     records = Entrez.read(handle)
+    handle.close()
     return records
-
 
 def append_taxonomies(input_file, header, tax_ranks, delimiter):
     """ Append the taxonomic information from Entrez to the TaxIDs from the input file and output the result in a new file """
@@ -80,6 +80,9 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     tax_df = pd.read_csv(input_file, sep=delimiter)
     tax_df.columns = tax_df.columns.str.strip()
     header = header.strip()
+    if header not in tax_df.columns:
+        print(f"Header '{header}' not found in input file. Exiting...\n")
+        sys.exit(1)
     header_prefix = "#" if header.startswith("#") else ""
     tax_df[header] = tax_df[header].astype(str).str.strip()
     tax_df = tax_df[tax_df[header].notna() & tax_df[header].apply(lambda x: x.isdigit())]
@@ -249,9 +252,9 @@ def sort_and_output_sankeymatic_code(input_file, group_threshold, sankeymatic_co
 
     def parse_line(line):
         """ Extract the count and ranks from a line of the SankeyMATIC code """
-        count = int(line.split('[')[1].split(']')[0])
-        parts = line.split('] ')
-        left_part = parts[0].split('[')[0].strip()
+        count = int(line.split("[")[1].split("]")[0])
+        parts = line.split("] ")
+        left_part = parts[0].split("[")[0].strip()
         right_part = parts[1].strip()
         return left_part, right_part, count
 

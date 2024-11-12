@@ -44,17 +44,29 @@ def parse_args():
 def setup_config(email):
     """ Write or read the configuration file """
     config = configparser.ConfigParser()
+    config_file = "entrez_config.ini"
+    if os.path.exists(config_file):
+        config.read(config_file)
+
     if email:  # Write email to config file
         Entrez.email = email
-        config.add_section("Entrez")
+        if not config.has_section("Entrez"):
+            config.add_section("Entrez")
         config.set("Entrez", "email", email)
-        with open("entrez_config.ini", "w") as configfile:
-            config.write(configfile)
-        print(f"\nEmail saved to 'entrez_config.ini'.\n")
-    elif os.path.exists("entrez_config.ini"):  # Read config file if it exists
-        config.read("entrez_config.ini")
-        Entrez.email = config["Entrez"]["email"]
-        print(f"\nEmail read from 'entrez_config.ini'.\n")
+        with open(config_file, "w") as file:
+            config.write(file)
+        print(f"\nEmail saved to '{config_file}'.\n")
+    elif os.path.exists(config_file):  # Use existing email if available
+        if config.has_section("Entrez"):
+            Entrez.email = config["Entrez"].get("email", None)
+            if Entrez.email:
+                print(f"\nEmail read from '{config_file}'.\n")
+            else:
+                print(f"\nNo email found in '{config_file}'. Please provide an email using the -e option to avoid issues with Entrez.\n")
+        else:
+            print(f"\nNo email found in '{config_file}'. Please provide an email using the -e option to avoid issues with Entrez.\n")
+    else:
+        print("\nPlease provide an email using the -e option to avoid issues with Entrez.\n")
 
 def detect_delimiter(input_file):
     """ Automatically detect the input table delimiter """

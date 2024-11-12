@@ -163,8 +163,6 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     # Include original columns that are not taxonomic ranks
     non_tax_columns = [col for col in tax_df.columns if col not in ordered_columns]
     tax_df = tax_df[non_tax_columns + ordered_columns]
-
-    # Replace NaN values with empty strings
     tax_df.fillna("-", inplace=True)
 
     # Remove placeholder underscores from the taxonomic columns before saving
@@ -186,7 +184,7 @@ def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold)
     sankeymatic_code = []
     node_presence = set()  # To avoid orphaned entries
 
-    # Setup for linking "All" to highest rank taxa
+    # Setup for linking "All" to the highest rank taxa
     tax_ranks = tax_ranks.split(",")
     highest_rank = f"{header_prefix}{tax_ranks[0].capitalize()}"
     total_counts = tax_df[highest_rank].value_counts()
@@ -201,7 +199,7 @@ def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold)
         else:  # Handle as entry to be grouped
             other_entries[rank] = count
 
-    # Link "All" to highest rank taxa
+    # Link "All" to the highest rank taxa
     for rank, count in normal_entries.items():
         sankeymatic_code.append(f"All [{count}] {rank}")
         node_presence.add(rank)
@@ -218,7 +216,7 @@ def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold)
     # Process each rank, handling linkage based on node presence
     for i in range(len(tax_ranks) - 1):
         current_rank = f"{header_prefix}{tax_ranks[i].capitalize()}"
-        next_rank = f"{header_prefix}{tax_ranks[i+1].capitalize()}"
+        next_rank = f"{header_prefix}{tax_ranks[i + 1].capitalize()}"
         group_data = tax_df.groupby([current_rank, next_rank]).size()
         grouped_entries = {}
 
@@ -244,7 +242,6 @@ def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold)
                 else:  # Group multiple low count entries
                     total_count = sum(lower_counts.values())
                     sankeymatic_code.append(f"{higher} [{total_count}] {higher} (grouped)")
-
     return sankeymatic_code
 
 def sort_and_output_sankeymatic_code(input_file, group_threshold, sankeymatic_code):
@@ -261,49 +258,50 @@ def sort_and_output_sankeymatic_code(input_file, group_threshold, sankeymatic_co
     def build_hierarchy(data):
         """ Build a hierarchical tree from the data """
         tree = collections.defaultdict(list)  # Tree to hold the hierarchy
-        node_lookup = {}  # Lookup for node to find its parent and count
 
         # Populate the tree with data
         for left_part, right_part, count in data:
             tree[left_part].append((right_part, count))
-            node_lookup[right_part] = (left_part, count)
 
         # Sort children of each node by their count in descending order
         for key in tree:
             tree[key].sort(key=lambda x: x[1], reverse=True)
 
-        return tree, node_lookup
+        return tree
 
-    def sort_hierarchy(tree, node_lookup):
-        """ Sort the hierarchy and generate the output """
+    def sort_hierarchy(tree):
+        """ Sort the hierarchy, remove cycles, and generate the output iteratively for a Sankey-compatible structure """
         sorted_output = []
+        visited_nodes = set()
+        stack = [("All", 0, None, None)]
 
-        def handle_node(node, depth=0):
-            # Format and append the current node to the output
-            if node in node_lookup:
-                parent, count = node_lookup[node]
-                sorted_output.append(f"{'  '*depth}{parent} [{count}] {node}")
+        # Stack entries are tuples of (node, depth, parent, count)
+        while stack:
+            current_node, depth, parent, count = stack.pop()
 
-            # Recursively handle all child nodes
-            if node in tree:
-                for child, count in tree[node]:
-                    handle_node(child, depth + 1)
+            # Detect and skip cycles
+            if current_node in visited_nodes:
+                continue  # Skip nodes already processed to avoid cycles
+            visited_nodes.add(current_node)
 
-        # Determine top-rank nodes (nodes that are not listed on the right side)
-        all_keys = set(tree.keys())
-        child_nodes = set(node_lookup.keys())
-        top_rank_nodes = all_keys - child_nodes
+            # Add the current node's relationship to the sorted output if it has a parent
+            if parent is not None and count is not None:
+                sorted_output.append(f"{'  ' * int(depth - 1)}{parent} [{count}] {current_node}")
 
-        # Process each top-rank node
-        for node in top_rank_nodes:
-            handle_node(node)
+            # Process children if they exist in the hierarchy
+            if current_node in tree:
+                # Sort children by count in descending order
+                children = sorted(tree[current_node], key=lambda x: x[1], reverse=True)
+                # Push children onto the stack in reverse order to process in correct order
+                for child, child_count in reversed(children):
+                    stack.append((child, depth + 1, current_node, child_count))
 
         return sorted_output
 
     # Process each line to parse and collect data
-    data = [parse_line(line.strip()) for line in sankeymatic_code if line.strip()]
-    tree, node_lookup = build_hierarchy(data)  # Build hierarchy from data
-    sorted_sankeymatic_code = sort_hierarchy(tree, node_lookup)  # Sort and prepare the final output
+    sankey_data = [parse_line(line.strip()) for line in sankeymatic_code if line.strip()]
+    hierarchy = build_hierarchy(sankey_data)  # Build hierarchy from data
+    sorted_sankeymatic_code = sort_hierarchy(hierarchy)  # Sort and prepare the final output
 
     # Write the sorted SankeyMATIC code to a file
     if group_threshold == 0:

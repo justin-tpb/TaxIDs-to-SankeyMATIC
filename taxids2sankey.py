@@ -18,7 +18,8 @@ def parse_args():
     Taxa with low counts can be grouped together for less clutter. The Sankey diagram is sorted by taxonomic hierarchy and count.
     Two non-default python modules are required, pandas and biopython. Install with: pip install pandas biopython
     """)
-    parser = argparse.ArgumentParser(description=description, epilog="Made by Justin Teixeira Pereira Bassiaridis.", add_help=False, formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description=description, epilog="Made by Justin Teixeira Pereira Bassiaridis from the Hess Lab at TU Darmstadt.",
+                                     add_help=False, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("input_file", metavar="<input_file>", type=str, help="File containing a column of TaxIDs, one per line. First line must contain column headers.")
     parser.add_argument("-c", "--header", metavar="<name>", type=str, help="Header of the column containing the TaxIDs (default: '#Taxid' from BLAST text output).", default="#Taxid")
     parser.add_argument("-t", "--tax_ranks", metavar="<taxonomic_ranks>", type=str, help="Comma-separated list of taxonomic ranks in hierarchical order (default: class,order,genus).\n"
@@ -102,6 +103,10 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     if not valid_taxids:
         print("No valid TaxIDs found in the input file. Please check your data and try again.\n")
         sys.exit(1)
+    print(f"Valid TaxIDs: {len(valid_taxids)}")
+    invalid_taxids_with_reason = invalid_taxids.copy()
+    invalid_taxids_with_reason[""] = invalid_taxids[header].apply(lambda x: "(empty)" if x.strip() == "" else "(nondigit)").str.ljust(10)
+    print(f"Invalid TaxIDs: {len(invalid_taxids_with_reason)}\n{invalid_taxids_with_reason}\n")
     tax_records = fetch_taxonomies(valid_taxids)
 
     # Build taxid_to_record mapping

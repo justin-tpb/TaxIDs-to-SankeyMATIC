@@ -45,7 +45,7 @@ def setup_config(email):
     """ Write or read the configuration file """
     config = configparser.ConfigParser()
     config_file = "entrez_config.ini"
-    if os.path.exists(config_file):
+    if os.path.isfile(config_file):
         config.read(config_file)
 
     if email:  # Write email to config file
@@ -56,7 +56,7 @@ def setup_config(email):
         with open(config_file, "w") as file:
             config.write(file)
         print(f"\nEmail saved to '{config_file}'.\n")
-    elif os.path.exists(config_file):  # Use existing email if available
+    elif os.path.isfile(config_file):  # Use existing email if available
         if config.has_section("Entrez"):
             Entrez.email = config["Entrez"].get("email", None)
             if Entrez.email:
@@ -88,7 +88,7 @@ def fetch_taxonomies(taxids):
 
 def append_taxonomies(input_file, header, tax_ranks, delimiter):
     """ Append the taxonomic information from Entrez to the TaxIDs from the input file and output the result in a new file """
-    # Load DataFrame from input file and filter entries
+    # Load DataFrame from input file, filter entries and fetch taxonomies
     tax_df = pd.read_csv(input_file, sep=delimiter)
     tax_df.columns = tax_df.columns.str.strip()
     header = header.strip()
@@ -97,10 +97,12 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
         sys.exit(1)
     header_prefix = "#" if header.startswith("#") else ""
     tax_df[header] = tax_df[header].astype(str).str.strip()
-    tax_df = tax_df[tax_df[header].notna() & tax_df[header].apply(lambda x: x.isdigit())]
-    taxids = tax_df[header].astype(str).tolist()
-
-    tax_records = fetch_taxonomies(taxids)
+    valid_taxids = tax_df[tax_df[header].apply(lambda x: x.isdigit())][header].tolist()
+    invalid_taxids = tax_df[~tax_df[header].apply(lambda x: x.isdigit())]
+    if not valid_taxids:
+        print("No valid TaxIDs found in the input file. Please check your data and try again.\n")
+        sys.exit(1)
+    tax_records = fetch_taxonomies(valid_taxids)
 
     # Build taxid_to_record mapping
     taxid_to_record = {}
@@ -116,7 +118,7 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     # Process records to extract taxonomic hierarchy and append to the DataFrame
     tax_ranks = tax_ranks.split(",")
     max_clade_count = 0
-    for taxid in taxids:
+    for taxid in valid_taxids:
         record = taxid_to_record.get(taxid)
         if not record:
             print(f"TaxID {taxid} does not exist.")
@@ -192,6 +194,7 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     output_filename = f"{os.path.splitext(input_file)[0]}.taxonomy.csv"
     tax_df.to_csv(output_filename, sep=delimiter, index=False)
     print(f"\nTaxonomic information has been saved to '{output_filename}'.\n")
+
     return tax_df, header_prefix
 
 def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold):
@@ -202,7 +205,8 @@ def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold)
     # Setup for linking "All" to the highest rank taxa
     tax_ranks = tax_ranks.split(",")
     highest_rank = f"{header_prefix}{tax_ranks[0].capitalize()}"
-    total_counts = tax_df[highest_rank].value_counts()
+    filtered_df = tax_df[tax_df[highest_rank] != "-"]  # Exclude entries with no taxonomic information
+    total_counts = filtered_df[highest_rank].value_counts()
     normal_entries = {}
     other_entries = {}
 
@@ -232,7 +236,11 @@ def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold)
     for i in range(len(tax_ranks) - 1):
         current_rank = f"{header_prefix}{tax_ranks[i].capitalize()}"
         next_rank = f"{header_prefix}{tax_ranks[i + 1].capitalize()}"
-        group_data = tax_df.groupby([current_rank, next_rank]).size()
+
+        # Exclude entries with no taxonomic information in the current or next rank
+        filtered_df = tax_df[(tax_df[current_rank] != "-") & (tax_df[next_rank] != "-")]
+
+        group_data = filtered_df.groupby([current_rank, next_rank]).size()
         grouped_entries = {}
 
         # Determine entries to be grouped
@@ -257,6 +265,7 @@ def generate_sankeymatic_code(tax_df, header_prefix, tax_ranks, group_threshold)
                 else:  # Group multiple low count entries
                     total_count = sum(lower_counts.values())
                     sankeymatic_code.append(f"{higher} [{total_count}] {higher} (grouped)")
+
     return sankeymatic_code
 
 def sort_and_output_sankeymatic_code(input_file, group_threshold, sankeymatic_code):
@@ -272,7 +281,7 @@ def sort_and_output_sankeymatic_code(input_file, group_threshold, sankeymatic_co
 
     def build_hierarchy(data):
         """ Build a hierarchical tree from the data """
-        tree = collections.defaultdict(list)  # Tree to hold the hierarchy
+        tree = collections.defaultdict(list)
 
         # Populate the tree with data
         for left_part, right_part, count in data:

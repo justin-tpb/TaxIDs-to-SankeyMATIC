@@ -1,9 +1,9 @@
 # TaxIDs to SankeyMATIC
-This script retrieves taxonomic information from the Entrez database using a list of TaxIDs, outputs the data in user-selected taxonomic ranks to a file, and generates ready-to-use code for visualizing the taxonomic distribution with [SankeyMATIC](https://sankeymatic.com/).
+This script retrieves taxonomic information from Entrez for a list of TaxIDs, outputs user-selected taxonomic ranks to a file, and generates ready-to-use code for visualizing the taxonomic distribution with [SankeyMATIC](https://sankeymatic.com/).
 
 
 ## Features
-* Fetch taxonomic information from Entrez for up to 10,000 specified TaxIDs.
+* Fetch taxonomic information from the Entrez database for up to 10,000 specified TaxIDs.
 * Export the retrieved data to a CSV file, allowing users to select specific taxonomic ranks.
 * Generate SankeyMATIC-compatible code for visualizing the taxonomic distribution of the selected ranks, sorted by hierarchy and count.
 * Group taxa with low counts to declutter the Sankey diagram using a user-defined threshold.

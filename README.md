@@ -1,13 +1,13 @@
 # TaxIDs to SankeyMATIC
-This script fetches taxonomic information from the Entrez database using a list of TaxIDs and outputs user-selected taxonomic ranks to a file.
-A ready-to-use code of the taxonomic distribution is then generated for visualization with [SankeyMATIC](https://sankeymatic.com/).
+This script retrieves taxonomic information from the Entrez database using a list of TaxIDs, outputs the data in user-selected taxonomic ranks to a file, and generates ready-to-use code for visualizing the taxonomic distribution with [SankeyMATIC](https://sankeymatic.com/).
 
 
 ## Features
-* Fetch taxonomic information from Entrez for specified TaxIDs.
-* Output the fetched data with user-selectable taxonomic ranks.
-* Generate code compatible with SankeyMATIC for visualizing the taxonomic distribution of the TaxIDs, sorted by hierarchy and count.
-* Optional grouping of taxa with low counts to reduce clutter in the Sankey diagram.
+* Fetch taxonomic information from Entrez for up to 10,000 specified TaxIDs.
+* Export the retrieved data to a CSV file, allowing users to select specific taxonomic ranks.
+* Generate SankeyMATIC-compatible code for visualizing the taxonomic distribution of the selected ranks, sorted by hierarchy and count.
+* Group taxa with low counts to declutter the Sankey diagram using a user-defined threshold.
+* Specify an email address, as required by NCBI.
 
 
 ## Prerequisites
@@ -30,6 +30,7 @@ or
 
 ### Arguments
 * `<input_file>`: File containing a column of TaxIDs, one per line.
+  * A maximum of 10,000 TaxIDs can be processed.
   * The first line must contain column headers.
   * The delimiter will be automatically detected.
 
@@ -39,10 +40,10 @@ or
   * Default is `#Taxid` from the BLAST text output.
 * `-t`, `--tax_ranks <taxonomic_ranks>`: Comma-separated list of taxonomic ranks.
   * Default is `class,order,genus`.
-* `-e`, `--email <address>`: Email for identification by Entrez.
+* `-e`, `--email <address>`: Email address for identification by NCBI.
   * Will be saved to `entrez_config.ini` for future use.
-  * Entrez will show a warning without an email and might block access in case of excessive usage.
-* `-g`, `--group <threshold>`: Group ranks below this threshold for less cluttered Sankey diagrams.
+  * E-utilities will show a warning without an email address.
+* `-g`, `--group <threshold>`: Group ranks below this threshold to declutter Sankey diagrams.
   * Groups will be named `<parent_rank> (grouped)`.
   * Default is no grouping.
 * `-s`, `--skip`: Skip the generation of SankeyMATIC compatible code (only output taxonomic information).
@@ -88,4 +89,4 @@ Justin Teixeira Pereira Bassiaridis
 
 
 ## License
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License. See [`LICENSE`](https://github.com/justin-tpb/TaxIDs-to-SankeyMATIC/blob/main/LICENSE) for more information.

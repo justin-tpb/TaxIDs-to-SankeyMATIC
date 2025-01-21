@@ -113,7 +113,7 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     print(f"Invalid TaxIDs: {len(invalid_taxids)}\n{invalid_taxids}\n")
     tax_records = fetch_taxonomies(valid_taxids)
 
-    # Build taxid_to_record mapping
+    # Build taxid_to_record mapping, considering "AkaTaxIds"
     taxid_to_record = {}
     for record in tax_records:
         record_taxid = record["TaxId"]
@@ -203,6 +203,9 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     output_filename = f"{os.path.splitext(input_file)[0]}.taxonomy.csv"
     tax_df.to_csv(output_filename, sep=delimiter, index=False)
     print(f"\nTaxonomic information has been saved to '{output_filename}'.\n")
+
+    # Replace square brackets in taxon names to avoid errors in SankeyMATIC code generation
+    tax_df = tax_df.map(lambda x: x.replace("[", "(").replace("]", ")") if isinstance(x, str) else x)
 
     return tax_df, header_prefix
 

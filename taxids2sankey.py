@@ -35,7 +35,12 @@ def parse_args():
     parser.add_argument("-h", "--help", action="help", help="Show this help message.")
     args = parser.parse_args()
 
-    # Automatically apply --skip if "clade" is in taxonomic ranks
+    # Check if the input file exists
+    if not os.path.isfile(args.input_file):
+        print(f"\nError: The input file '{args.input_file}' does not exist.\n")
+        sys.exit(1)
+
+    # Automatically apply -s/--skip if "clade" is in taxonomic ranks
     if "clade" in args.tax_ranks.split(","):
         args.skip = True
         print("\nSkipping SankeyMATIC code generation because the 'clade' rank was selected.")
@@ -99,14 +104,13 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     header_prefix = "#" if header.startswith("#") else ""
     tax_df[header] = tax_df[header].astype(str).str.strip()
     valid_taxids = tax_df[tax_df[header].apply(lambda x: x.isdigit())][header].tolist()
-    invalid_taxids = tax_df[~tax_df[header].apply(lambda x: x.isdigit())]
+    invalid_taxids = tax_df[~tax_df[header].apply(lambda x: x.isdigit())].copy()
     if not valid_taxids:
         print("No valid TaxIDs found in the input file. Please check your data and try again.\n")
         sys.exit(1)
     print(f"Valid TaxIDs: {len(valid_taxids)}")
-    invalid_taxids_with_reason = invalid_taxids.copy()
-    invalid_taxids_with_reason[""] = invalid_taxids[header].apply(lambda x: "(empty)" if x.strip() == "" else "(nondigit)").str.ljust(10)
-    print(f"Invalid TaxIDs: {len(invalid_taxids_with_reason)}\n{invalid_taxids_with_reason}\n")
+    invalid_taxids[""] = invalid_taxids[header].apply(lambda x: "(empty)" if x.strip() == "" else "(nondigit)").str.ljust(10)
+    print(f"Invalid TaxIDs: {len(invalid_taxids)}\n{invalid_taxids}\n")
     tax_records = fetch_taxonomies(valid_taxids)
 
     # Build taxid_to_record mapping
@@ -173,7 +177,7 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
         if clade_column not in tax_df.columns:
             tax_df[clade_column] = pd.NA
 
-    # Reorder columns to match the taxonomic rank order specified by -t
+    # Reorder columns to match the taxonomic rank order specified by -t/--tax_ranks
     ordered_columns = []
     for rank in tax_ranks:
         if rank == "clade":

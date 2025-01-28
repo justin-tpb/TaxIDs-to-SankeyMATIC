@@ -24,6 +24,7 @@ def parse_args():
     parser.add_argument("-c", "--header", metavar="<name>", type=str, help="Header of the column containing the TaxIDs (default: '#Taxid' from BLAST text output).", default="#Taxid")
     parser.add_argument("-t", "--tax_ranks", metavar="<taxonomic_ranks>", type=str, help="Comma-separated list of taxonomic ranks in hierarchical order (default: phylum,order,genus).\n"
                         "Commonly used ranks: superkingdom,kingdom,phylum,class,order,family,genus,species\n"
+                        "Use '-t common' to automatically select these ranks. More ranks can be appended, e.g., '-t common,variety'.\n"
                         "All available ranks: superkingdom,kingdom,subkingdom,infrakingdom,superphylum,phylum,subphylum,infraphylum,superclass,class,subclass,infraclass,superorder,\n"
                         "                     order,suborder,infraorder,parvorder,superfamily,family,subfamily,tribe,subtribe,genus,subgenus,species,subspecies,variety,form,clade\n"
                         "Note: The rank 'clade' can only be used to fetch taxonomic information, but not to generate SankeyMATIC code.\n"
@@ -44,6 +45,15 @@ def parse_args():
     if "clade" in args.tax_ranks.split(","):
         args.skip = True
         print("\nSkipping SankeyMATIC code generation because the 'clade' rank was selected.")
+
+    # Handle "common" placeholder for taxonomic ranks
+    if args.tax_ranks.split(",")[0] == "common":
+        common_ranks = "superkingdom,kingdom,phylum,class,order,family,genus,species"
+        additional_ranks = ",".join(args.tax_ranks.split(",")[1:]).strip()
+        if additional_ranks:
+            args.tax_ranks = f"{common_ranks},{additional_ranks}"
+        else:
+            args.tax_ranks = common_ranks
 
     return args
 

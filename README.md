@@ -40,6 +40,7 @@ or
   * Default is `#Taxid` from the BLAST text output.
 * `-t`, `--tax_ranks <taxonomic_ranks>`: Comma-separated list of taxonomic ranks.
   * Default is `phylum,order,genus`.
+  * `-t common` will automatically select commonly used ranks.
 * `-e`, `--email <address>`: Email address for identification by NCBI.
   * Will be saved to `entrez_config.ini` for future use.
   * E-utilities will show a warning without an email address.
@@ -68,7 +69,7 @@ python taxids2sankey.py example.csv -c TaxIDs -s
 
 Specifying custom taxonomic ranks and enabling grouping for SankeyMATIC:
 ```
-python taxids2sankey.py example.csv -t phylum,class,order -g 10
+python taxids2sankey.py example.csv -t superkingdom,kingdom,phylum -g 10
 ```
 
 

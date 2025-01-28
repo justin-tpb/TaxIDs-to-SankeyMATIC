@@ -39,7 +39,7 @@ or
 * `-c`, `--header <name>`: Header of the column containing the TaxIDs.
   * Default is `#Taxid` from the BLAST text output.
 * `-t`, `--tax_ranks <taxonomic_ranks>`: Comma-separated list of taxonomic ranks.
-  * Default is `class,order,genus`.
+  * Default is `phylum,order,genus`.
 * `-e`, `--email <address>`: Email address for identification by NCBI.
   * Will be saved to `entrez_config.ini` for future use.
   * E-utilities will show a warning without an email address.

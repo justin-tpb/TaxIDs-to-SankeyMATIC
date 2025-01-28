@@ -22,13 +22,13 @@ def parse_args():
                                      add_help=False, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("input_file", metavar="<input_file>", type=str, help="File containing a column of TaxIDs, one per line. First line must contain column headers.")
     parser.add_argument("-c", "--header", metavar="<name>", type=str, help="Header of the column containing the TaxIDs (default: '#Taxid' from BLAST text output).", default="#Taxid")
-    parser.add_argument("-t", "--tax_ranks", metavar="<taxonomic_ranks>", type=str, help="Comma-separated list of taxonomic ranks in hierarchical order (default: class,order,genus).\n"
+    parser.add_argument("-t", "--tax_ranks", metavar="<taxonomic_ranks>", type=str, help="Comma-separated list of taxonomic ranks in hierarchical order (default: phylum,order,genus).\n"
                         "Commonly used ranks: superkingdom,kingdom,phylum,class,order,family,genus,species\n"
-                        "All available ranks: clade,domain,superkingdom,kingdom,subkingdom,infrakingdom,superphylum,phylum,subphylum,infraphylum,superclass,class,subclass,infraclass,\n"
-                        "                     superorder,order,suborder,infraorder,parvorder,superfamily,family,subfamily,tribe,subtribe,genus,subgenus,species,subspecies,variety,form\n"
+                        "All available ranks: superkingdom,kingdom,subkingdom,infrakingdom,superphylum,phylum,subphylum,infraphylum,superclass,class,subclass,infraclass,superorder,\n"
+                        "                     order,suborder,infraorder,parvorder,superfamily,family,subfamily,tribe,subtribe,genus,subgenus,species,subspecies,variety,form,clade\n"
                         "Note: The rank 'clade' can only be used to fetch taxonomic information, but not to generate SankeyMATIC code.\n"
-                        "      This is because 'clade' does not follow any hierarchical structure and can also have multiple entries.\n"
-                        "      When 'clade' is selected, '-s' is applied automatically.", default="class,order,genus")
+                        "      This is because 'clade' does not follow a specific hierarchical structure and can also have multiple entries.\n"
+                        "      When 'clade' is selected, '-s' is applied automatically.", default="phylum,order,genus")
     parser.add_argument("-e", "--email", metavar="<address>", type=str, help="Email for identification by Entrez. Will be saved to 'entrez_config.ini' for future use.")
     parser.add_argument("-g", "--group", metavar="<threshold>", type=int, help="Group together ranks which are below this threshold for SankeyMATIC (default: no grouping).", default=0)
     parser.add_argument("-s", "--skip", help="Skip the generation of SankeyMATIC compatible code (only output taxonomic information).", action="store_true")

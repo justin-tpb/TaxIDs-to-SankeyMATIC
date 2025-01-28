@@ -139,10 +139,10 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
             if taxon["Rank"] in tax_ranks:
                 tax_data[taxon["Rank"]].append(taxon["ScientificName"])
 
-        # Special handling for species rank when not in "LineageEx"
-        if "species" in tax_ranks and not tax_data["species"]:
-            if record.get("Rank") == "species":
-                tax_data["species"].append(record.get("ScientificName", "Unknown_species"))
+        # Fetch the rank of the current TaxID
+        taxid_rank = record.get("Rank")
+        if taxid_rank in tax_ranks:
+            tax_data[taxid_rank].append(record.get("ScientificName", f"Unknown_{taxid_rank}"))
 
         # Set placeholders if rank is unknown
         for i, rank in enumerate(tax_ranks):

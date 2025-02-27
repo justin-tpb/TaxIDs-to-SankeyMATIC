@@ -37,7 +37,7 @@ or
 
 ### Options
 * `-c`, `--header <name>`: Header of the column containing the TaxIDs.
-  * Default is `#Taxid` from the BLAST text output.
+  * Default is `#Taxid` from BLAST text output or `taxid` from the Taxonomy name/id Status Report Page.
 * `-t`, `--tax_ranks <taxonomic_ranks>`: Comma-separated list of taxonomic ranks.
   * Default is `phylum,order,genus`.
   * `-t common` will automatically select commonly used ranks.

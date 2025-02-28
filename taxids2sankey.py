@@ -168,8 +168,11 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
         print("No valid TaxIDs found in the input file. Please check your data and try again.\n")
         sys.exit(1)
     print(f"Valid TaxIDs: {len(valid_taxids)}")
-    invalid_taxids[""] = invalid_taxids[header].apply(lambda x: "(empty)" if x.strip() == "" else "(nondigit)").str.ljust(10)
-    print(f"Invalid TaxIDs: {len(invalid_taxids)}\n{invalid_taxids}\n")
+    if not invalid_taxids.empty:
+        invalid_taxids[""] = invalid_taxids[header].apply(lambda x: "(empty)" if x.strip() == "" else "(nondigit)").str.ljust(10)
+        print(f"Invalid TaxIDs: {len(invalid_taxids)}\n{invalid_taxids}\n")
+    else:
+        print("Invalid TaxIDs: 0\n")
     tax_records = fetch_taxonomies(valid_taxids)
 
     # Build taxid_to_record mapping, considering "AkaTaxIds"

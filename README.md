@@ -40,7 +40,8 @@ or
   * Default is `#Taxid` from BLAST text output or `taxid` from the Taxonomy name/id Status Report Page.
 * `-t`, `--tax_ranks <taxonomic_ranks>`: Comma-separated list of taxonomic ranks.
   * Default is `phylum,order,genus`.
-  * `-t common` will automatically select commonly used ranks.
+  * `-t common` will automatically select commonly used ranks:
+    * `domain,kingdom,phylum,class,order,family,genus,species`
 * `-e`, `--email <address>`: Email address for identification by NCBI.
   * Will be saved to `entrez_config.ini` for future use.
   * E-utilities will show a warning without an email address.

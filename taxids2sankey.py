@@ -4,7 +4,6 @@ import argparse
 import collections
 import configparser
 import csv
-import textwrap
 import os
 import sys
 import pandas as pd
@@ -12,28 +11,74 @@ from Bio import Entrez
 
 def parse_args():
     """ Set up command-line argument parsing """
-    description = textwrap.dedent("""
-    This script fetches taxonomic information from the Entrez database using a list of TaxIDs and outputs selected taxonomic ranks to a file.
-    A ready-to-use code of the taxonomic distribution is then generated for visualization with SankeyMATIC (https://sankeymatic.com/).
-    Taxa with low counts can be grouped together for less clutter. The Sankey diagram is sorted by taxonomic hierarchy and count.
-    Two non-default python modules are required, pandas and biopython. Install with: pip install pandas biopython
-    """)
-    parser = argparse.ArgumentParser(description=description, epilog="Made by Justin Teixeira Pereira Bassiaridis from the Hess Lab at TU Darmstadt.",
-                                     add_help=False, formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("input_file", metavar="<input_file>", type=str, help="File containing a column of TaxIDs, one per line. First line must contain column headers.")
-    parser.add_argument("-c", "--header", metavar="<name>", type=str, help="Header of the column containing the TaxIDs (default: '#Taxid' from BLAST text output).", default="#Taxid")
-    parser.add_argument("-t", "--tax_ranks", metavar="<taxonomic_ranks>", type=str, help="Comma-separated list of taxonomic ranks in hierarchical order (default: phylum,order,genus).\n"
-                        "Commonly used ranks: domain,kingdom,phylum,class,order,family,genus,species\n"
-                        "Use '-t common' to automatically select these ranks. More ranks can be appended, e.g., '-t common,variety'.\n"
-                        "All available ranks: domain,kingdom,subkingdom,infrakingdom,superphylum,phylum,subphylum,infraphylum,superclass,class,subclass,infraclass,superorder,\n"
-                        "                     order,suborder,infraorder,parvorder,superfamily,family,subfamily,tribe,subtribe,genus,subgenus,species,subspecies,variety,form,clade\n"
-                        "Note: The rank 'clade' can only be used to fetch taxonomic information, but not to generate SankeyMATIC code.\n"
-                        "      This is because 'clade' does not follow a specific hierarchical structure and can also have multiple entries.\n"
-                        "      When 'clade' is selected, '-s' is applied automatically.", default="phylum,order,genus")
-    parser.add_argument("-e", "--email", metavar="<address>", type=str, help="Email for identification by Entrez. Will be saved to 'entrez_config.ini' for future use.")
-    parser.add_argument("-g", "--group", metavar="<threshold>", type=int, help="Group together ranks which are below this threshold for SankeyMATIC (default: no grouping).", default=0)
-    parser.add_argument("-s", "--skip", help="Skip the generation of SankeyMATIC compatible code (only output taxonomic information).", action="store_true")
-    parser.add_argument("-h", "--help", action="help", help="Show this help message.")
+    description = (
+        "This script fetches taxonomic information from the Entrez database using a list of TaxIDs and outputs selected taxonomic ranks to a file.\n"
+        "A ready-to-use code of the taxonomic distribution is then generated for visualization with SankeyMATIC (https://sankeymatic.com/).\n"
+        "Taxa with low counts can be grouped together for less clutter. The Sankey diagram is sorted by taxonomic hierarchy and count.\n"
+        "Two non-default python modules are required, pandas and biopython. Install with: pip install pandas biopython\n"
+    )
+    parser = argparse.ArgumentParser(
+        description=description,
+        epilog="Made by Justin Teixeira Pereira Bassiaridis from the Hess Lab at TU Darmstadt.",
+        add_help=False,
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument(
+        "input_file",
+        metavar="<input_file>",
+        type=str,
+        help="File containing a column of TaxIDs, one per line. First line must contain column headers."
+    )
+    parser.add_argument(
+        "-c",
+        "--header",
+        metavar="<name>",
+        type=str,
+        help="Header of the column containing the TaxIDs (default: '#Taxid' from BLAST text output or 'taxid' from the Taxonomy name/id Status Report Page).",
+        default="#Taxid"
+    )
+    parser.add_argument(
+        "-t",
+        "--tax_ranks",
+        metavar="<taxonomic_ranks>",
+        type=str,
+        help="Comma-separated list of taxonomic ranks in hierarchical order (default: phylum,order,genus).\n"
+             "Commonly used ranks: domain,kingdom,phylum,class,order,family,genus,species\n"
+             "Use '-t common' to automatically select these ranks. More ranks can be appended, e.g., '-t common,variety'.\n"
+             "All available ranks: domain,kingdom,subkingdom,infrakingdom,superphylum,phylum,subphylum,infraphylum,superclass,class,subclass,infraclass,superorder,\n"
+             "                     order,suborder,infraorder,parvorder,superfamily,family,subfamily,tribe,subtribe,genus,subgenus,species,subspecies,variety,form,clade\n"
+             "Note: The rank 'clade' can only be used to fetch taxonomic information, but not to generate SankeyMATIC code.\n"
+             "      This is because 'clade' does not follow a specific hierarchical structure and can also have multiple entries.\n"
+             "      When 'clade' is selected, '-s' is applied automatically.",
+        default="phylum,order,genus"
+    )
+    parser.add_argument(
+        "-e",
+        "--email",
+        metavar="<address>",
+        type=str,
+        help="Email for identification by Entrez. Will be saved to 'entrez_config.ini' for future use."
+    )
+    parser.add_argument(
+        "-g",
+        "--group",
+        metavar="<threshold>",
+        type=int,
+        help="Group together ranks which are below this threshold for SankeyMATIC (default: no grouping).",
+        default=0
+    )
+    parser.add_argument(
+        "-s",
+        "--skip",
+        help="Skip the generation of SankeyMATIC compatible code (only output taxonomic information).",
+        action="store_true"
+    )
+    parser.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        help="Show this help message and exit."
+    )
     args = parser.parse_args()
 
     # Check if the input file exists
@@ -109,8 +154,12 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
     tax_df.columns = tax_df.columns.str.strip()
     header = header.strip()
     if header not in tax_df.columns:
-        print(f"Header '{header}' not found in input file. Exiting...\n")
-        sys.exit(1)
+        # Try alternative header "taxid" if default header "#Taxid" is not found
+        if header == "#Taxid" and "taxid" in tax_df.columns:
+            header = "taxid"
+        else:
+            print(f"Header '{header}' not found in input file. Exiting...\n")
+            sys.exit(1)
     header_prefix = "#" if header.startswith("#") else ""
     tax_df[header] = tax_df[header].astype(str).str.strip()
     valid_taxids = tax_df[tax_df[header].apply(lambda x: x.isdigit())][header].tolist()
@@ -119,8 +168,11 @@ def append_taxonomies(input_file, header, tax_ranks, delimiter):
         print("No valid TaxIDs found in the input file. Please check your data and try again.\n")
         sys.exit(1)
     print(f"Valid TaxIDs: {len(valid_taxids)}")
-    invalid_taxids[""] = invalid_taxids[header].apply(lambda x: "(empty)" if x.strip() == "" else "(nondigit)").str.ljust(10)
-    print(f"Invalid TaxIDs: {len(invalid_taxids)}\n{invalid_taxids}\n")
+    if not invalid_taxids.empty:
+        invalid_taxids[""] = invalid_taxids[header].apply(lambda x: "(empty)" if x.strip() == "" else "(nondigit)").str.ljust(10)
+        print(f"Invalid TaxIDs: {len(invalid_taxids)}\n{invalid_taxids}\n")
+    else:
+        print("Invalid TaxIDs: 0\n")
     tax_records = fetch_taxonomies(valid_taxids)
 
     # Build taxid_to_record mapping, considering "AkaTaxIds"

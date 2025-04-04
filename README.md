@@ -75,8 +75,7 @@ python taxids2sankey.py example.csv -t superkingdom,kingdom,phylum -g 10
 
 
 ### Note
-Entrez will sometimes cause an `HTTP Error 400 Bad Request` error. If this happens, just try again after a few seconds.
-
+Occasionally, Entrez may return an `HTTP Error 400 Bad Request` error. When this occurs, the script will attempt two additional retries. If the error persists, please try again later.
 
 ## Output
 * A `<input_filename>.taxonomy.csv` file containing the input TaxIDs along with the fetched taxonomic information.

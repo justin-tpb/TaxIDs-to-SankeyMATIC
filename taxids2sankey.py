@@ -120,33 +120,29 @@ def detect_delimiter(input_file):
             sys.exit(1)
 
 def fetch_taxonomies(taxids):
-    """Fetch taxonomic information for all TaxIDs in one request from the Entrez taxonomy database."""
-    print("Fetching taxonomic information from the Entrez database...")
-    try:
-        # First attempt to fetch taxonomy data
-        handle = Entrez.efetch(db="taxonomy", id=taxids, retmax=10000)
-        records = Entrez.read(handle)
-        handle.close()
-    except Exception as e:
-        print(f"\nError fetching taxonomy data on first attempt: {e}\nRetrying in 5 seconds...")
-        time.sleep(5)
+    """ Fetch taxonomic information for all TaxIDs from the Entrez taxonomy database using retry logic """
+    max_retries = 3
+    wait_time = 5 
+    attempt = 1
+
+    while attempt <= max_retries:
+        print(f"Fetching taxonomic information from the Entrez database...")
         try:
-            # Second attempt to fetch taxonomy data
+            # Attempt to fetch taxonomic information
             handle = Entrez.efetch(db="taxonomy", id=taxids, retmax=10000)
             records = Entrez.read(handle)
             handle.close()
+            return records
         except Exception as e:
-            print(f"\nError fetching taxonomy data on second attempt: {e}\nRetrying in 5 seconds...")
-            time.sleep(5)
-            try:
-                # Third attempt to fetch taxonomy data
-                handle = Entrez.efetch(db="taxonomy", id=taxids, retmax=10000)
-                records = Entrez.read(handle)
-                handle.close()
-            except Exception as e:
-                print(f"\nError fetching taxonomy data on third attempt: {e}\nExiting...\n")
+            # If it's the last attempt, exit with an error message
+            if attempt == max_retries:
+                print(f"\nError fetching taxonomic information on attempt {attempt}: {e}\nExiting...\n")
                 sys.exit(1)
-    return records
+            else:
+                # Otherwise, wait and try again
+                print(f"\nError fetching taxonomic information on attempt {attempt}: {e}\nRetrying in {wait_time} seconds...\n")
+                time.sleep(wait_time)
+                attempt += 1
 
 def append_taxonomies(input_file, header, tax_ranks, delimiter):
     """ Append the taxonomic information from Entrez to the TaxIDs from the input file and output the result in a new file """
